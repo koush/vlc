@@ -637,6 +637,7 @@ libvlc_media_player_new( libvlc_instance_t *instance )
     var_Create (mp, "rate", VLC_VAR_FLOAT|VLC_VAR_DOINHERIT);
     var_Create (mp, "sout", VLC_VAR_STRING);
     var_Create (mp, "demux-filter", VLC_VAR_STRING);
+    var_Create (mp, "input-record-path", VLC_VAR_STRING);
 
     /* Video */
     var_Create (mp, "vout", VLC_VAR_STRING|VLC_VAR_DOINHERIT);
@@ -2093,4 +2094,22 @@ int libvlc_media_player_get_role(libvlc_media_player_t *mp)
 
     free(str);
     return ret;
+}
+
+int libvlc_media_player_record( libvlc_media_player_t *p_mi,
+                                const char *directory )
+{
+    vlc_value_t val = { .psz_string = (char *)directory };
+    const bool enable = directory != NULL;
+    input_thread_t *p_input_thread = libvlc_get_input_thread ( p_mi );
+    if( !p_input_thread )
+        return VLC_EGENERIC;
+
+    if( enable )
+        var_Set( p_mi, "input-record-path", val );
+
+    var_SetBool( p_input_thread, "record", enable);
+
+    vlc_object_release( p_input_thread );
+    return VLC_SUCCESS;
 }

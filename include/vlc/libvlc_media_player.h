@@ -26,6 +26,8 @@
 #ifndef VLC_LIBVLC_MEDIA_PLAYER_H
 #define VLC_LIBVLC_MEDIA_PLAYER_H 1
 
+#define LIBVLC_MEDIA_PLAYER_HAS_RECORDING
+
 # ifdef __cplusplus
 extern "C" {
 # else
@@ -2079,6 +2081,17 @@ LIBVLC_API int libvlc_media_player_get_role(libvlc_media_player_t *p_mi);
  */
 LIBVLC_API int libvlc_media_player_set_role(libvlc_media_player_t *p_mi,
                                             unsigned role);
+/**
+ * Start/stop recording
+ *
+ * \version LibVLC 4.0.0 and later.
+ *
+ * \param p_mi media player
+ * \param directory path of the recording directory or NULL to stop recording
+ * \return 0 on success, -1 on error
+ */
+LIBVLC_API int libvlc_media_player_record(libvlc_media_player_t *p_mi,
+                                          const char *directory);
 
 /** @} audio */
 
