@@ -129,6 +129,30 @@ ssize_t sendmsg(int fd, const struct msghdr *msg, int flags)
     free(data);
     return res;
 }
+#elif defined(__ANDROID__) && defined(__aarch64__)
+
+#undef sendmsg
+
+#include <sys/types.h>
+#include <sys/socket.h>
+
+/**
+ * Since we bumped the NDK version from 14 to 18, some devices (at least up to
+ * Android 6) are returning errors on 4 bytes, even though ssize_t is actually
+ * 8 bytes. This causes `value < 0` checks to yield false, and consider the value
+ * as a non error.
+ * As the patch lies in either the NDK or the Android kernel, or the device libc
+ * we can only work around it. If errno is not 0 & we receive -1, on 32bits or
+ * 64bits, we assume an error was returned.
+ */
+ssize_t vlc_sendmsg(int fd, const struct msghdr *msg, int flags)
+{
+    errno = 0;
+    ssize_t ret = sendmsg(fd, msg, flags);
+    if ((ret < 0 || ret == 0xFFFFFFFF) && errno != 0)
+        return -1;
+    return ret;
+}
 
 #else
 #error sendmsg not implemented on your platform!

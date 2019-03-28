@@ -365,6 +365,9 @@ AS_IF([test "$SYS" = linux],[
     ],[
       HAVE_ANDROID="1"
       AC_MSG_RESULT([yes])
+      AS_IF([test "${host_cpu}" = "aarch64"], [
+          AC_LIBOBJ([sendmsg])
+      ])
     ],[
       AC_MSG_RESULT([no])
     ])
