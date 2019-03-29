@@ -546,8 +546,11 @@ static ssize_t vlc_tls_ConnectWrite(vlc_tls_t *tls,
             return -1;
     }
     else
-    if (errno != EOPNOTSUPP)
+    if (errno != EOPNOTSUPP && errno != EPIPE)
+    { /* If MSG_FASTOPEN was defined but the kernel doesn't support fast open at
+        all, EPIPE will be returned instead of EOPNOTSUPP */
         return -1;
+    }
     /* Fast open not supported or disabled... fallback to normal mode */
 #else
     tls->writev = vlc_tls_SocketWrite;
