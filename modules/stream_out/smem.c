@@ -148,50 +148,45 @@ struct sout_stream_id_sys_t
 struct sout_stream_sys_t
 {
     vlc_mutex_t *p_lock;
-    void ( *pf_video_prerender_callback ) ( void* p_video_data, uint8_t** pp_pixel_buffer, size_t size );
-    void ( *pf_audio_prerender_callback ) ( void* p_audio_data, uint8_t** pp_pcm_buffer, size_t size );
-    void ( *pf_video_postrender_callback ) ( void* p_video_data, uint8_t* p_pixel_buffer, int width, int height, int pixel_pitch, size_t size, mtime_t pts );
-    void ( *pf_audio_postrender_callback ) ( void* p_audio_data, uint8_t* p_pcm_buffer, unsigned int channels, unsigned int rate, unsigned int nb_samples, unsigned int bits_per_sample, size_t size, mtime_t pts );
+    void ( *pf_video_prerender_callback ) ( void* p_video_data, uint8_t** pp_video_buffer, size_t size );
+    void ( *pf_audio_prerender_callback ) ( void* p_audio_data, uint8_t** pp_audio_buffer, size_t size );
+    void ( *pf_video_postrender_callback ) ( void* p_video_data, uint8_t* p_video_buffer, int width, int height, int pixel_pitch, size_t size, mtime_t pts );
+    void ( *pf_audio_postrender_callback ) ( void* p_audio_data, uint8_t* p_audio_buffer, size_t size, mtime_t pts );
     bool time_sync;
 };
 
-void VideoPrerenderDefaultCallback( void* p_video_data, uint8_t** pp_pixel_buffer, size_t size );
-void AudioPrerenderDefaultCallback( void* p_audio_data, uint8_t** pp_pcm_buffer, size_t size );
-void VideoPostrenderDefaultCallback( void* p_video_data, uint8_t* p_pixel_buffer, int width, int height,
+void VideoPrerenderDefaultCallback( void* p_video_data, uint8_t** pp_video_buffer, size_t size );
+void AudioPrerenderDefaultCallback( void* p_audio_data, uint8_t** pp_audio_buffer, size_t size );
+void VideoPostrenderDefaultCallback( void* p_video_data, uint8_t* p_video_buffer, int width, int height,
                                      int pixel_pitch, size_t size, mtime_t pts );
-void AudioPostrenderDefaultCallback( void* p_audio_data, uint8_t* p_pcm_buffer, unsigned int channels,
-                                     unsigned int rate, unsigned int nb_samples, unsigned int bits_per_sample,
-                                     size_t size, mtime_t pts );
+void AudioPostrenderDefaultCallback( void* p_audio_data, uint8_t* p_audio_buffer, size_t size, mtime_t pts );
 
 /*****************************************************************************
  * Default empty callbacks
  *****************************************************************************/
 
-void VideoPrerenderDefaultCallback( void* p_video_data, uint8_t** pp_pixel_buffer, size_t size )
+void VideoPrerenderDefaultCallback( void* p_video_data, uint8_t** pp_video_buffer, size_t size )
 {
-    VLC_UNUSED( p_video_data ); VLC_UNUSED( pp_pixel_buffer ); VLC_UNUSED( size );
+    VLC_UNUSED( p_video_data ); VLC_UNUSED( pp_video_buffer ); VLC_UNUSED( size );
 }
 
-void AudioPrerenderDefaultCallback( void* p_audio_data, uint8_t** pp_pcm_buffer, size_t size )
+void AudioPrerenderDefaultCallback( void* p_audio_data, uint8_t** pp_audio_buffer, size_t size )
 {
-    VLC_UNUSED( p_audio_data ); VLC_UNUSED( pp_pcm_buffer ); VLC_UNUSED( size );
+    VLC_UNUSED( p_audio_data ); VLC_UNUSED( pp_audio_buffer ); VLC_UNUSED( size );
 }
 
-void VideoPostrenderDefaultCallback( void* p_video_data, uint8_t* p_pixel_buffer, int width, int height,
+void VideoPostrenderDefaultCallback( void* p_video_data, uint8_t* p_video_buffer, int width, int height,
                                      int pixel_pitch, size_t size, mtime_t pts )
 {
-    VLC_UNUSED( p_video_data ); VLC_UNUSED( p_pixel_buffer );
+    VLC_UNUSED( p_video_data ); VLC_UNUSED( p_video_buffer );
     VLC_UNUSED( width ); VLC_UNUSED( height );
     VLC_UNUSED( pixel_pitch ); VLC_UNUSED( size ); VLC_UNUSED( pts );
 }
 
-void AudioPostrenderDefaultCallback( void* p_audio_data, uint8_t* p_pcm_buffer, unsigned int channels,
-                                     unsigned int rate, unsigned int nb_samples, unsigned int bits_per_sample,
-                                     size_t size, mtime_t pts )
+void AudioPostrenderDefaultCallback( void* p_audio_data, uint8_t* p_audio_buffer, size_t size, mtime_t pts )
 {
-    VLC_UNUSED( p_audio_data ); VLC_UNUSED( p_pcm_buffer );
-    VLC_UNUSED( channels ); VLC_UNUSED( rate ); VLC_UNUSED( nb_samples );
-    VLC_UNUSED( bits_per_sample ); VLC_UNUSED( size ); VLC_UNUSED( pts );
+    VLC_UNUSED( p_audio_data ); VLC_UNUSED( p_audio_buffer );
+    VLC_UNUSED( size ); VLC_UNUSED( pts );
 }
 
 /*****************************************************************************
@@ -326,7 +321,7 @@ static sout_stream_id_sys_t *AddAudio( sout_stream_t *p_stream,
 
     if( !i_bits_per_sample )
     {
-        msg_Err( p_stream, "Smem does only support raw audio format" );
+        msg_Dbg( p_stream, "non raw audio format detected (%4.4s), buffers will contain compressed audio", (char *)&p_fmt->i_codec );
         return NULL;
     }
 
@@ -392,7 +387,7 @@ static int SendAudio( sout_stream_t *p_stream, sout_stream_id_sys_t *id,
 {
     sout_stream_sys_t *p_sys = p_stream->p_sys;
     int i_size;
-    uint8_t* p_pcm_buffer = NULL;
+    uint8_t* p_audio_buffer = NULL;
     int i_samples = 0;
 
     i_size = p_buffer->i_buffer;
@@ -405,8 +400,8 @@ static int SendAudio( sout_stream_t *p_stream, sout_stream_id_sys_t *id,
 
     i_samples = i_size / ( ( id->format.audio.i_bitspersample / 8 ) * id->format.audio.i_channels );
     /* Calling the prerender callback to get user buffer */
-    p_sys->pf_audio_prerender_callback( id->p_data, &p_pcm_buffer, i_size );
-    if (!p_pcm_buffer)
+    p_sys->pf_audio_prerender_callback( id->p_data, &p_audio_buffer, i_size );
+    if (!p_audio_buffer)
     {
         msg_Err( p_stream, "No buffer given!" );
         block_ChainRelease( p_buffer );
@@ -414,11 +409,10 @@ static int SendAudio( sout_stream_t *p_stream, sout_stream_id_sys_t *id,
     }
 
     /* Copying data into user buffer */
-    memcpy( p_pcm_buffer, p_buffer->p_buffer, i_size );
+    memcpy( p_audio_buffer, p_buffer->p_buffer, i_size );
     /* Calling the postrender callback to tell the user his buffer is ready */
-    p_sys->pf_audio_postrender_callback( id->p_data, p_pcm_buffer,
-                                         id->format.audio.i_channels, id->format.audio.i_rate, i_samples,
-                                         id->format.audio.i_bitspersample, i_size, p_buffer->i_pts );
+    p_sys->pf_audio_postrender_callback( id->p_data, p_audio_buffer,
+                                         i_size, p_buffer->i_pts );
     block_ChainRelease( p_buffer );
     return VLC_SUCCESS;
 }
