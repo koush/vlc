@@ -259,9 +259,9 @@ static sout_stream_id_sys_t *AddAudio( sout_stream_t *p_stream,
     es_format_Copy( &id->format, p_fmt );
 
     sout_stream_sys_t *p_sys = p_stream->p_sys;
-    if ( p_sys->pf_video_format_callback != NULL )
+    if ( p_sys->pf_audio_format_callback != NULL )
     {
-        p_sys->pf_video_format_callback( id->p_data, id->format.p_extra, id->format.i_extra );
+        p_sys->pf_audio_format_callback( id->p_data, id->format.p_extra, id->format.i_extra );
     }
 
     return id;
