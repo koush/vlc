@@ -147,8 +147,8 @@ struct sout_stream_sys_t
     vlc_mutex_t *p_lock;
     void ( *pf_video_format_callback ) ( void* p_video_data, uint8_t* p_video_buffer, size_t size );
     void ( *pf_audio_format_callback ) ( void* p_audio_data, uint8_t* p_audio_buffer, size_t size );
-    void ( *pf_video_postrender_callback ) ( void* p_video_data, uint8_t* p_video_buffer, size_t size, mtime_t pts, uint32_t flags );
-    void ( *pf_audio_postrender_callback ) ( void* p_audio_data, uint8_t* p_audio_buffer, size_t size, mtime_t pts, uint32_t flags );
+    void ( *pf_video_postrender_callback ) ( void* p_video_data, uint8_t* p_video_buffer, size_t size, mtime_t pts, mtime_t dts, uint32_t flags );
+    void ( *pf_audio_postrender_callback ) ( void* p_audio_data, uint8_t* p_audio_buffer, size_t size, mtime_t pts, mtime_t dts, uint32_t flags );
     bool time_sync;
 };
 
@@ -180,11 +180,11 @@ static int Open( vlc_object_t *p_this )
     free( psz_tmp );
 
     psz_tmp = var_GetString( p_stream, SOUT_PREFIX_VIDEO "postrender-callback" );
-    p_sys->pf_video_postrender_callback = (void (*) (void*, uint8_t*, size_t, mtime_t, uint32_t))(intptr_t)atoll( psz_tmp );
+    p_sys->pf_video_postrender_callback = (void (*) (void*, uint8_t*, size_t, mtime_t, mtime_t, uint32_t))(intptr_t)atoll( psz_tmp );
     free( psz_tmp );
 
     psz_tmp = var_GetString( p_stream, SOUT_PREFIX_AUDIO "postrender-callback" );
-    p_sys->pf_audio_postrender_callback = (void (*) (void*, uint8_t*, size_t, mtime_t, uint32_t))(intptr_t)atoll( psz_tmp );
+    p_sys->pf_audio_postrender_callback = (void (*) (void*, uint8_t*, size_t, mtime_t, mtime_t, uint32_t))(intptr_t)atoll( psz_tmp );
     free( psz_tmp );
 
     /* Setting stream out module callbacks */
@@ -294,7 +294,7 @@ static int SendVideo( sout_stream_t *p_stream, sout_stream_id_sys_t *id,
     if (p_sys->pf_video_postrender_callback != NULL)
     {
         p_sys->pf_video_postrender_callback( id->p_data, p_buffer->p_buffer,
-                                            i_size, p_buffer->i_pts, p_buffer->i_flags );
+                                            i_size, p_buffer->i_pts, p_buffer->i_dts, p_buffer->i_flags );
     }
 
     block_ChainRelease( p_buffer );
@@ -313,7 +313,7 @@ static int SendAudio( sout_stream_t *p_stream, sout_stream_id_sys_t *id,
     if ( p_sys->pf_audio_postrender_callback != NULL )
     {
         p_sys->pf_audio_postrender_callback( id->p_data, p_buffer->p_buffer,
-                                            i_size, p_buffer->i_pts, p_buffer->i_flags );
+                                            i_size, p_buffer->i_pts, p_buffer->i_dts, p_buffer->i_flags );
     }
 
     block_ChainRelease( p_buffer );
